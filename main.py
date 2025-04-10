@@ -8,40 +8,44 @@ from agents.tool import function_tool
 
 # Set page configuration
 st.set_page_config(
-    page_title="OpenAI Deep Research Agent",
+    page_title="Gazai Deep Research Agent",
     page_icon="📘",
     layout="wide"
 )
 
-# Initialize session state for API keys if not exists
-if "openai_api_key" not in st.session_state:
-    st.session_state.openai_api_key = ""
-if "firecrawl_api_key" not in st.session_state:
-    st.session_state.firecrawl_api_key = ""
+# Custom CSS for vertical alignment
+st.markdown("""
+    <style>
+    [data-testid="column"] {
+        display: flex !important;
+        align-items: center !important;
+    }
+    [data-testid="stImage"] {
+        margin-bottom: 0 !important;
+    }
+    [data-testid="stMarkdownContainer"] h1 {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# Sidebar for API keys
-with st.sidebar:
-    st.title("API Configuration")
-    openai_api_key = st.text_input(
-        "OpenAI API Key", 
-        value=st.session_state.openai_api_key,
-        type="password"
-    )
-    firecrawl_api_key = st.text_input(
-        "Firecrawl API Key", 
-        value=st.session_state.firecrawl_api_key,
-        type="password"
-    )
-    
-    if openai_api_key:
-        st.session_state.openai_api_key = openai_api_key
-        set_default_openai_key(openai_api_key)
-    if firecrawl_api_key:
-        st.session_state.firecrawl_api_key = firecrawl_api_key
+# Initialize API keys from secrets
+try:
+    openai_api_key = st.secrets["openai_api_key"]
+    firecrawl_api_key = st.secrets["firecrawl_api_key"]
+    set_default_openai_key(openai_api_key)
+except KeyError:
+    st.error("API keys not found in secrets. Please check your Streamlit settings.")
+    st.stop()
 
-# Main content
-st.title("📘 OpenAI Deep Research Agent")
-st.markdown("This OpenAI Agent from the OpenAI Agents SDK performs deep research on any topic using Firecrawl")
+# Main content with horizontally aligned header
+col1, col2 = st.columns([0.2, 0.8])
+with col1:
+    st.image("gazai.png", width=150)
+with col2:
+    st.markdown("# Deep Research Agent")
+st.markdown("This Agent performs deep research on any topic")
 
 # Research topic input
 research_topic = st.text_input("Enter your research topic:", placeholder="e.g., Latest developments in AI")
@@ -53,20 +57,20 @@ async def deep_research(query: str, max_depth: int, time_limit: int, max_urls: i
     Perform comprehensive web research using Firecrawl's deep research endpoint.
     """
     try:
-        # Initialize FirecrawlApp with the API key from session state
-        firecrawl_app = FirecrawlApp(api_key=st.session_state.firecrawl_api_key)
-        
+        # Initialize FirecrawlApp with the API key from secrets
+        firecrawl_app = FirecrawlApp(api_key=firecrawl_api_key)
+
         # Define research parameters
         params = {
             "maxDepth": max_depth,
             "timeLimit": time_limit,
             "maxUrls": max_urls
         }
-        
+
         # Set up a callback for real-time updates
         def on_activity(activity):
             st.write(f"[{activity['type']}] {activity['message']}")
-        
+
         # Run deep research
         with st.spinner("Performing deep research..."):
             results = firecrawl_app.deep_research(
@@ -74,7 +78,7 @@ async def deep_research(query: str, max_depth: int, time_limit: int, max_urls: i
                 params=params,
                 on_activity=on_activity
             )
-        
+
         return {
             "success": True,
             "final_analysis": results['data']['finalAnalysis'],
@@ -129,46 +133,44 @@ async def run_research_process(topic: str):
     with st.spinner("Conducting initial research..."):
         research_result = await Runner.run(research_agent, topic)
         initial_report = research_result.final_output
-    
+
     # Display initial report in an expander
     with st.expander("View Initial Research Report"):
         st.markdown(initial_report)
-    
+
     # Step 2: Enhance the report
     with st.spinner("Enhancing the report with additional information..."):
         elaboration_input = f"""
         RESEARCH TOPIC: {topic}
-        
+
         INITIAL RESEARCH REPORT:
         {initial_report}
-        
-        Please enhance this research report with additional information, examples, case studies, 
+
+        Please enhance this research report with additional information, examples, case studies,
         and deeper insights while maintaining its academic rigor and factual accuracy.
         """
-        
+
         elaboration_result = await Runner.run(elaboration_agent, elaboration_input)
         enhanced_report = elaboration_result.final_output
-    
+
     return enhanced_report
 
 # Main research process
-if st.button("Start Research", disabled=not (openai_api_key and firecrawl_api_key and research_topic)):
-    if not openai_api_key or not firecrawl_api_key:
-        st.warning("Please enter both API keys in the sidebar.")
-    elif not research_topic:
+if st.button("Start Research", disabled=not research_topic):
+    if not research_topic:
         st.warning("Please enter a research topic.")
     else:
         try:
             # Create placeholder for the final report
             report_placeholder = st.empty()
-            
+
             # Run the research process
             enhanced_report = asyncio.run(run_research_process(research_topic))
-            
+
             # Display the enhanced report
             report_placeholder.markdown("## Enhanced Research Report")
             report_placeholder.markdown(enhanced_report)
-            
+
             # Add download button
             st.download_button(
                 "Download Report",
@@ -176,10 +178,10 @@ if st.button("Start Research", disabled=not (openai_api_key and firecrawl_api_ke
                 file_name=f"{research_topic.replace(' ', '_')}_report.md",
                 mime="text/markdown"
             )
-            
+
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 
 # Footer
 st.markdown("---")
-st.markdown("Powered by OpenAI Agents SDK and Firecrawl") 
+st.markdown("Powered by GAZAI.ai")
